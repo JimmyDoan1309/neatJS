@@ -56,7 +56,7 @@ class Bird extends NeatAgent {
   }
 
   predict(inputs) {
-    let result = NeatActivations.sigmoid(this.brain.predict(inputs)[0]);
+    let result = NeatUtils.sigmoid(this.brain.predict(inputs)[0]);
     if (result > 0.5) {
       this.jump();
     }

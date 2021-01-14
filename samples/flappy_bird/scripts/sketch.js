@@ -16,6 +16,8 @@ let bgImage;
 let pipeImage;
 let font;
 
+DEFAULT_ACTIVATION = "sigmoid";
+
 function preload() {
   birdAnimation = loadAnimation(
     "assets/sprites/bluebird-downflap.png",
@@ -28,7 +30,13 @@ function preload() {
   font = loadFont("assets/flap_font.ttf");
 
   birdAnimation.frameDelay = 5;
-  birdPop = new Population(Bird, { inputDim: 3, outputDim: 1 }, POPSIZE, 0.5, true);
+  birdPop = new Population(
+    Bird,
+    { inputDim: 3, outputDim: 1 },
+    POPSIZE,
+    0.5,
+    true
+  );
   birdPop.population.forEach((bird) => {
     bird.addSprite(birdAnimation);
   });

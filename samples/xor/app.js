@@ -8,7 +8,7 @@ class XORAgent extends NeatAgent {
   }
 
   predict(inp) {
-    return NeatActivations.sigmoid(this.brain.predict(inp))[0];
+    return NeatUtils.sigmoid(this.brain.predict(inp))[0];
   }
 
   evaluate(inputs, outputs) {
@@ -16,7 +16,7 @@ class XORAgent extends NeatAgent {
     for (let i = 0; i < inputs.length; i++) {
       loss += binaryCrossEntropy(
         outputs[i],
-        NeatActivations.sigmoid(this.brain.predict(inputs[i]))[0]
+        NeatUtils.sigmoid(this.brain.predict(inputs[i]))[0]
       );
     }
     this.fitness = 1 / loss + 0.00000001;

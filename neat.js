@@ -1,26 +1,20 @@
 let WEIGHT_MUTATE_CHANCE = 0.8;
 let BIAS_MUTATE_CHANCE = 0.8;
+let WEIGHT_BIAS_RESET_CHANCE = 0.05;
 let NEW_CONN_MUTATE_CHANCE = 0.1;
 let NEW_NODE_MUTATE_CHANCE = 0.05;
-let DEFAULT_ACTIVATION = "relu";
+let HIDDEN_ACTIVATION = "relu";
 let KEEP_RATIO = 0.3;
 
 let SPECIES_TOPOLOGY_COEF = 0.3;
 let SPECIES_WEIGHT_COEF = 3;
 let SPECIES_THRESHOLD = 5;
-let SPECIES_EXTINCT_AFTER = 5;
+let SPECIES_EXTINCT_AFTER = 15;
 
 let INNOVATION_NUMBER = 1;
 let INNOVATION_CACHE = {};
 
-function randomNormal(mean = 0.0, std = 1.0) {
-  let u1 = Math.random();
-  let u2 = Math.random();
-  let z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  return z * std + mean;
-}
-
-const NeatActivations = {
+const NeatUtils = {
   sigmoid: (z) => {
     if (z.constructor == Array) {
       let result = [];
@@ -45,6 +39,25 @@ const NeatActivations = {
 
     return result;
   },
+
+  randomNormal: (mean = 0.0, std = 1.0) => {
+    let u1 = Math.random();
+    let u2 = Math.random();
+    let z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return z * std + mean;
+  },
+
+  argMax: (values) => {
+    let max = -Infinity;
+    let maxIndex = 0;
+    values.forEach((value, index) => {
+      if (value > max) {
+        max = value;
+        maxIndex = index;
+      }
+    });
+    return maxIndex;
+  },
 };
 
 class Node {
@@ -52,13 +65,13 @@ class Node {
     nodeId,
     layer,
     isOuput = false,
-    activation = DEFAULT_ACTIVATION,
+    activation = HIDDEN_ACTIVATION,
     bias = null
   ) {
     this.nodeId = nodeId;
     this.layer = layer;
     this.isOuput = isOuput;
-    this.bias = bias != null ? bias : randomNormal();
+    this.bias = bias != null ? bias : NeatUtils.randomNormal();
     this.activation = activation;
     this.outputValue = 0;
     this.inputValue = 0;
@@ -77,10 +90,10 @@ class Node {
 
   mutateBias() {
     let rand = Math.random();
-    if (rand < 0.1) {
-      this.bias = randomNormal(); // 10% of change bias
+    if (rand < WEIGHT_BIAS_RESET_CHANCE) {
+      this.bias = NeatUtils.randomNormal();
     } else {
-      this.bias += randomNormal(0, 0.1); // 90% of tweak bias
+      this.bias += NeatUtils.randomNormal(0, 0.3);
     }
   }
 
@@ -115,7 +128,7 @@ class Connection {
   constructor(fromNode, toNode, weight = null, enable = true) {
     this.fromNode = fromNode;
     this.toNode = toNode;
-    this.weight = weight != null ? weight : randomNormal();
+    this.weight = weight != null ? weight : NeatUtils.randomNormal();
     this.enable = enable;
     this.innovation = 0;
     this.assignInnovation();
@@ -123,10 +136,10 @@ class Connection {
 
   mutateWeight() {
     let rand = Math.random();
-    if (rand < 0.1) {
-      this.weight = randomNormal(); // 10% of change weight
+    if (rand < WEIGHT_BIAS_RESET_CHANCE) {
+      this.weight = NeatUtils.randomNormal();
     } else {
-      this.weight += randomNormal(0, 0.1); // 90% of tweak weight
+      this.weight += NeatUtils.randomNormal(0, 0.3);
     }
   }
 
@@ -274,7 +287,7 @@ class Genome {
 
     let layer = conn.fromNode.layer + 1;
 
-    let newNode = new Node(this.nodeCount, layer, false, DEFAULT_ACTIVATION, 0);
+    let newNode = new Node(this.nodeCount, layer, false, HIDDEN_ACTIVATION, 0);
     this.nodes.forEach((node) => {
       if (node.layer > conn.fromNode.layer) node.layer++;
     });
@@ -477,7 +490,7 @@ class Population {
     this.population = [];
     this.bestAgent;
     this.bestFitness = -Infinity;
-    this.generation = 0;
+    this.generation = 1;
 
     this.agentCls = agentCls;
     this.agentArgs = agentArgs;
@@ -555,7 +568,7 @@ class Population {
 
       species.representer = species.members[0];
 
-      let keepSize = Math.round(this.keepRatio * species.members.length);
+      let keepSize = Math.ceil(this.keepRatio * species.members.length);
 
       let tmp = species.members.splice(
         keepSize,
@@ -564,14 +577,20 @@ class Population {
       removeAgents.push(...tmp);
     }
 
-    this.population = this.population.filter(
-      (agent) => !removeAgents.includes(agent)
-    );
     this.speciesTable = this.speciesTable.filter(
       (species) => !removeSpecies.includes(species)
     );
 
-    this.sortAgents();
+    if (this.speciesTable.length > 0) {
+      this.population = this.population.filter(
+        (agent) => !removeAgents.includes(agent)
+      );
+      this.sortAgents();
+    } else {
+      let keepSize = Math.ceil(this.populationSize * this.keepRatio);
+      this.sortAgents();
+      this.population.splice(keepSize, this.populationSize - keepSize);
+    }
 
     let currentTopAgent = this.population[0];
     if (currentTopAgent.fitness > this.bestFitness) {
@@ -680,6 +699,14 @@ class Population {
       }
     });
     return currentBest;
+  }
+
+  getAverageFitness() {
+    let sum = 0;
+    this.population.forEach((agent) => {
+      sum += agent.fitness;
+    });
+    return sum / this.populationSize;
   }
 
   // Sort agents by fitness score
